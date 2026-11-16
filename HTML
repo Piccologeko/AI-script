@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="it" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeForge AI - Generatore Intelligente di Script</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ide: {
+                            bg: '#0b0f19',
+                            panel: '#111827',
+                            card: '#1e293b',
+                            border: '#334155',
+                            accent: '#3b82f6',
+                            purple: '#8b5cf6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Prism.js Tema Tomorrow Night + Line Numbers -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+
+    <style>
+        /* Custom Scrollbar stile IDE */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Override Prism per integrarlo perfettamente nel layout */
+        pre[class*="language-"] {
+            margin: 0 !important;
+            background: transparent !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 0.875rem !important;
+            line-height: 1.6 !important;
+        }
+        .line-numbers .line-numbers-rows {
+            border-right: 1px solid #334155 !important;
+            padding-right: 8px;
+        }
+    </style>
+</head>
+<body class="bg-ide-bg text-slate-200 font-sans min-h-screen flex flex-col selection:bg-blue-500/30 selection:text-blue-200">
+
+    <!-- NAVBAR SUPERIORE -->
+    <header class="border-b border-slate-800 bg-ide-panel/80 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <!-- Brand -->
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i data-lucide="terminal" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+                        CodeForge <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">AI</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Generatore multi-linguaggio & assistente architetturale</p>
+                </div>
+            </div>
+
+            <!-- Controlli Destra -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Badge Stato Modalità -->
+                <div id="modeBadge" class="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span>Modalità Demo</span>
+                </div>
+
+                <!-- Pulsante Cronologia -->
+                <button onclick="toggleModal('historyModal')" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-sm font-medium transition">
+                    <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
+                    <span class="hidden sm:inline">Cronologia</span>
+                    <span id="historyCount" class="bg-slate-700 text-slate-300 text-xs px-1.5 py-0.5 rounded-md">0</span>
+                </button>
+
+                <!-- Pulsante Impostazioni API -->
+                <button onclick="toggleModal('settingsModal')" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-medium transition">
+                    <i data-lucide="key" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">API Key</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT: LAYOUT A DUE COLONNE -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- COLONNA SINISTRA: PANNELLO DI CONTROLLO (5 colonne su desktop) -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+            <div class="bg-ide-panel border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-5">
+                
+                <!-- 1. Selettore Linguaggio / Piattaforma -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5">
+                        1. Linguaggio / Piattaforma
+                    </label>
+                    <div id="languageGrid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2">
+                        <!-- Generato dinamicamente da JS -->
+                    </div>
+                </div>
+
+                <!-- 2. Tipo di Script (Dinamico in base al linguaggio) -->
+                <div>
+                    <label for="scriptType" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                        2. Ambiente / Tipo di Script
+                    </label>
+                    <div class="relative">
+                        <select id="scriptType" class="w-full appearance-none bg-ide-card border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                            <!-- Popolato da JS -->
+                        </select>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <!-- 3. Area Prompt + Esempi Rapidi -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="promptInput" class="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            3. Cosa deve fare lo script?
+                        </label>
+                        <button onclick="document.getElementById('promptInput').value=''" class="text-xs text-slate-500 hover:text-slate-300 transition">
+                            Pulisci
+                        </button>
+                    </div>
+                    <textarea id="promptInput" rows="4" placeholder="Es. Crea uno tsunami che spawna ogni 30 secondi in un'area delimitata e danneggia i giocatori che non sono al riparo..." class="w-full bg-ide-card border border-slate-700 rounded-lg p-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition resize-none"></textarea>
+                    
+                    <!-- Esempi cliccabili rapidi -->
+                    <div class="mt-2.5">
+                        <span class="text-xs text-slate-500 block mb-1.5">Esempi rapidi:</span>
+                        <div id="quickExamples" class="flex flex-wrap gap-1.5">
+                            <!-- Popolato da JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Opzioni Aggiuntive -->
+                <div class="border-t border-slate-800 pt-4">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                        4. Opzioni di Generazione
+                    </label>
+                    <div class="space-y-2.5">
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition">Includi commenti esplicativi</span>
+                            <input type="checkbox" id="optComments" checked class="w-4 h-4 rounded border-slate-600 bg-ide-card text-blue-600 focus:ring-blue-500 focus:ring-offset-ide-panel">
+                        </label>
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition">Gestione errori (<code class="text-xs text-blue-400">try/catch</code> o <code class="text-xs text-blue-400">pcall</code>)</span>
+                            <input type="checkbox" id="optErrors" checked class="w-4 h-4 rounded border-slate-600 bg-ide-card text-blue-600 focus:ring-blue-500 focus:ring-offset-ide-panel">
+                        </label>
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="text-sm text-slate-300 group-hover:text-white transition">Spiega dove inserire lo script</span>
+                            <input type="checkbox" id="optInstructions" checked class="w-4 h-4 rounded border-slate-600 bg-ide-card text-blue-600 focus:ring-blue-500 focus:ring-offset-ide-panel">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 5. Pulsante Genera -->
+                <button id="generateBtn" onclick="generateScript()" class="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition transform active:scale-[0.99]">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span>Genera Script</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- COLONNA DESTRA: EDITOR OUTPUT E ISTRUZIONI (7 colonne su desktop) -->
+        <section class="lg:col-span-7 flex flex-col gap-5">
+            
+            <!-- Box Principale Editor -->
+            <div class="bg-ide-panel border border-slate-800 rounded-xl shadow-xl overflow-hidden flex flex-col flex-1 min-h-[420px]">
+                
+                <!-- Barra Superiore Editor -->
+                <div class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                        <!-- Pallini finestra macOS/IDE -->
+                        <div class="flex items-center gap-1.5 mr-1">
+                            <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+                            <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+                            <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-ide-card px-2.5 py-1 rounded-md border border-slate-700/80">
+                            <i data-lucide="file-code-2" class="w-3.5 h-3.5 text-blue-400"></i>
+                            <span id="fileNameDisplay" class="font-mono text-xs text-slate-200">MainScript.lua</span>
+                        </div>
+                    </div>
+
+                    <!-- Azioni Codice -->
+                    <div class="flex items-center gap-2">
+                        <button id="copyBtn" onclick="copyCode()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-ide-card hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 transition">
+                            <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-400"></i>
+                            <span id="copyBtnText">Copia Codice</span>
+                        </button>
+                        <button onclick="downloadCode()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-xs font-medium text-blue-300 transition">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                            <span>Scarica File</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Area Codice con Syntax Highlighting -->
+                <div class="relative flex-1 bg-[#0d1117] overflow-auto max-h-[550px]">
+                    <!-- Overlay Caricamento -->
+                    <div id="loadingOverlay" class="hidden absolute inset-0 bg-[#0d1117]/85 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3">
+                        <div class="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                        <p class="text-sm font-medium text-blue-400 animate-pulse">Elaborazione e ottimizzazione del codice...</p>
+                    </div>
+
+                    <pre class="line-numbers p-4"><code id="codeOutput" class="language-lua">-- Seleziona un linguaggio, descrivi la tua idea e clicca su "Genera Script".
+-- Suggerimento: puoi usare gli esempi rapidi a sinistra per iniziare subito!</code></pre>
+                </div>
+            </div>
+
+            <!-- Box Istruzioni d'Uso -->
+            <div id="instructionsBox" class="bg-ide-panel border border-slate-800 rounded-xl p-5 shadow-xl">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="p-1.5 rounded-lg bg-violet-500/10 text-violet-400">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                    </div>
+                    <h2 class="font-semibold text-sm text-white">Guida all'Implementazione</h2>
+                </div>
+                <div id="instructionsContent" class="text-sm text-slate-300 space-y-2 leading-relaxed">
+                    <p>Le istruzioni dettagliate su dove incollare ed eseguire lo script appariranno qui dopo la generazione.</p>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- MODALE IMPOSTAZIONI API KEY -->
+    <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-ide-panel border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="key" class="w-5 h-5 text-blue-400"></i>
+                    Configurazione API AI
+                </h3>
+                <button onclick="toggleModal('settingsModal')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                Inserisci una chiave API gratuita di <strong>Google Gemini</strong> per generare script reali su misura. La chiave viene salvata esclusivamente nel <code class="text-slate-300">localStorage</code> del tuo browser. Se lasci il campo vuoto, verrà usata la <strong>Modalità Demo</strong>.
+            </p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Google Gemini API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-ide-card border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button onclick="clearApiKey()" class="px-3.5 py-2 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition">
+                        Rimuovi Chiave
+                    </button>
+                    <button onclick="saveApiKey()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition">
+                        Salva Impostazioni
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CRONOLOGIA LOCALE -->
+    <div id="historyModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-ide-panel border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="history" class="w-5 h-5 text-violet-400"></i>
+                    Ultimi 5 Script Generati
+                </h3>
+                <button onclick="toggleModal('historyModal')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div id="historyList" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                <!-- Popolato da JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS PRISM.JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lua.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-powershell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+    <!-- LOGICA APPLICATIVA -->
+    <script>
+        // ==========================================
+        // 1. CONFIGURAZIONE LINGUAGGI E DATI DEMO
+        // ==========================================
+        const LANGUAGES = [
+            {
+                id: 'luau',
+                name: 'Roblox Luau',
+                ext: '.lua',
+                prism: 'lua',
+                icon: 'gamepad-2',
+                types: ['ServerScript (ServerScriptService)', 'LocalScript (StarterPlayerScripts)', 'ModuleScript (ReplicatedStorage)'],
+                examples: [
+                    'Crea uno tsunami che spawna ogni 30 secondi e danneggia i giocatori',
+                    'Sistema di salvataggio monete con DataStoreService',
+                    'Arma da mischia che infligge danno con cooldown'
+                ]
+            },
+            {
+                id: 'javascript',
+                name: 'JavaScript',
+                ext: '.js',
+                prism: 'javascript',
+                icon: 'file-code',
+                types: ['Browser DOM (ES6+)', 'Node.js Backend', 'React Component (JSX)'],
+                examples: [
+                    'Fetch API con gestione errori e caricamento dati',
+                    'Timer conto alla rovescia interattivo per pagina web',
+                    'Filtro di ricerca in tempo reale su una lista HTML'
+                ]
+            },
+            {
+                id: 'python',
+                name: 'Python',
+                ext: '.py',
+                prism: 'python',
+                icon: 'terminal-square',
+                types: ['Script Automazione / CLI', 'Web Scraping (BeautifulSoup)', 'Analisi Dati / File'],
+                examples: [
+                    'Organizza automaticamente i file di una cartella per estensione',
+                    'Generatore di password sicure personalizzabili',
+                    'Script che monitora il prezzo di una pagina web'
+                ]
+            },
+            {
+                id: 'powershell',
+                name: 'PowerShell',
+                ext: '.ps1',
+                prism: 'powershell',
+                icon: 'monitor',
+                types: ['Manutenzione Sistema Windows', 'Gestione File & Rete', 'Diagnostica Hardware'],
+                examples: [
+                    'Pulisci file temporanei di Windows e svuota il cestino',
+                    'Mostra i 5 processi che consumano più RAM e CPU',
+                    'Esegui backup automatico di una cartella con data'
+                ]
+            },
+            {
+                id: 'cpp',
+                name: 'C++',
+                ext: '.cpp',
+                prism: 'cpp',
+                icon: 'cpu',
+                types: ['Console Application (C++20)', 'Algoritmi & Strutture Dati', 'Arduino / Embedded'],
+                examples: [
+                    'Calcolatrice scientifica da terminale con menu',
+                    'Algoritmo di ordinamento rapido (QuickSort) commentato',
+                    'Lettura sensore temperatura su Arduino'
+                ]
+            },
+            {
+                id: 'sql',
+                name: 'SQL',
+                ext: '.sql',
+                prism: 'sql',
+                icon: 'database',
+                types: ['PostgreSQL / MySQL', 'SQLite', 'Query Analitiche'],
+                examples: [
+                    'Crea tabelle Utenti e Ordini con chiave esterna',
+                    'Query per trovare i 10 prodotti più venduti del mese',
+                    'Aggiorna i prezzi con uno sconto del 15% per categoria'
+                ]
+            },
+            {
+                id: 'bash',
+                name: 'Bash / Linux',
+                ext: '.sh',
+                prism: 'bash',
+                icon: 'server',
+                types: ['Automazione Server Linux', 'Cron Job / Backup', 'Gestione Docker'],
+                examples: [
+                    'Script di backup compresso tar.gz con rotazione log',
+                    'Controlla lo spazio su disco e avvisa se supera il 90%',
+                    'Aggiorna pacchetti di sistema e pulisci cache'
+                ]
+            },
+            {
+                id: 'html',
+                name: 'HTML / CSS',
+                ext: '.html',
+                prism: 'html',
+                icon: 'layout',
+                types: ['Componente UI Moderno', 'Landing Page Responsive', 'Animazione CSS'],
+                examples: [
+                    'Card prodotto moderna con effetto vetro (Glassmorphism)',
+                    'Navbar responsive con menu hamburger per mobile',
+                    'Griglia galleria immagini con effetto hover'
+                ]
+            }
+        ];
+
+        // Database script realistici per la Modalità Demo
+        const DEMO_SCRIPTS = {
+            luau: {
+                filename: 'TsunamiSpawner.lua',
+                code: `-- Posizionare questo ServerScript in ServerScriptService
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+
+-- Configurazione dello Tsunami
+local SPAWN_INTERVAL = 30 -- Secondi tra uno tsunami e l'altro
+local WAVE_SPEED = 45     -- Studs al secondo
+local WAVE_DAMAGE = 100   -- Danno letale al contatto
+local START_POS = Vector3.new(0, 15, -250)
+local END_POS = Vector3.new(0, 15, 250)
+
+local function spawnTsunami()
+    -- Creazione dell'onda tramite Istanza Part
+    local wave = Instance.new("Part")
+    wave.Name = "TsunamiWave"
+    wave.Size = Vector3.new(300, 35, 20)
+    wave.Position = START_POS
+    wave.Anchored = true
+    wave.CanCollide = false
+    wave.Material = Enum.Material.Neon
+    wave.Color = Color3.fromRGB(0, 140, 255)
+    wave.Transparency = 0.25
+    wave.Parent = workspace
+
+    -- Gestione collisione e danno con protezione pcall
+    local debounce = {}
+    wave.Touched:Connect(function(hit)
+        local character = hit.Parent
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        
+        if humanoid and not debounce[character] then
+            debounce[character] = true
+            local success, err = pcall(function()
+                humanoid:TakeDamage(WAVE_DAMAGE)
+            end)
+            if not success then
+                warn("Errore nell'applicazione del danno: " .. tostring(err))
+            end
+        end
+    end)
+
+    -- Calcolo durata movimento in base alla distanza
+    local distance = (END_POS - START_POS).Magnitude
+    local duration = distance / WAVE_SPEED
+
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(wave, tweenInfo, {Position = END_POS})
+    
+    tween:Play()
+    tween.Completed:Wait()
+    wave:Destroy()
+end
+
+-- Loop principale ottimizzato con task.wait()
+task.spawn(function()
+    while true do
+        task.wait(SPAWN_INTERVAL)
+        spawnTsunami()
+    end
+end)`,
+                instructions: `
+                    <ol class="list-decimal list-inside space-y-1.5">
+                        <li>Apri <strong>Roblox Studio</strong> e assicurati che la finestra <em>Explorer</em> sia visibile.</li>
+                        <li>Fai clic destro su <strong>ServerScriptService</strong> → <em>Insert Object</em> → <strong>Script</strong>.</li>
+                        <li>Incolla il codice generato e rinomina lo script in <code>TsunamiSpawner</code>.</li>
+                        <li>Modifica le coordinate <code>START_POS</code> e <code>END_POS</code> in base alle dimensioni della tua mappa.</li>
+                    </ol>`
+            },
+            powershell: {
+                filename: 'PuliziaSistemaWindows.ps1',
+                code: `<#
+.SYNOPSIS
+    Script di pulizia file temporanei e ottimizzazione rapida per Windows 10/11.
+#>
+
+Write-Host "=== Avvio pulizia file temporanei di sistema ===" -ForegroundColor Cyan
+
+# Percorsi delle cartelle temporanee
+$TempFolders = @(
+    $env:TEMP,
+    "C:\\Windows\\Temp",
+    "C:\\Windows\\Prefetch"
+)
+
+$DeletedCount = 0
+
+foreach ($Folder in $TempFolders) {
+    if (Test-Path -Path $Folder) {
+        Write-Host "Analisi cartella: $Folder" -ForegroundColor Yellow
+        Get-ChildItem -Path $Folder -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
+                $DeletedCount++
+            }
+            catch {
+                # Ignora i file attualmente in uso da Windows
+            }
+        }
+    }
+}
+
+# Svuota il Cestino senza chiedere conferma
+try {
+    Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+    Write-Host "Cestino svuotato con successo." -ForegroundColor Green
+}
+catch {
+    Write-Warning "Impossibile svuotare il cestino o cestino già vuoto."
+}
+
+Write-Host "Pulizia completata! Elementi rimossi: $DeletedCount" -ForegroundColor Green`,
+                instructions: `
+                    <ol class="list-decimal list-inside space-y-1.5">
+                        <li>Salva il file come <code>PuliziaSistemaWindows.ps1</code> sul Desktop.</li>
+                        <li>Fai clic destro sul menu Start e apri <strong>Terminale (Amministratore)</strong> o <strong>PowerShell (Amministratore)</strong>.</li>
+                        <li>Se necessario, abilita l'esecuzione locale digitando: <code>Set-ExecutionPolicy RemoteSigned -Scope CurrentUser</code>.</li>
+                        <li>Esegui lo script trascinando il file nella finestra del terminale e premendo <strong>Invio</strong>.</li>
+                    </ol>`
+            },
+            python: {
+                filename: 'OrganizzaCartella.py',
+                code: `import os
+import shutil
+from pathlib import Path
+
+# Dizionario delle categorie di estensioni
+CATEGORIES = {
+    "Immagini": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
+    "Documenti": [".pdf", ".docx", ".txt", ".xlsx", ".pptx"],
+    "Archivi": [".zip", ".rar", ".7z", ".tar", ".gz"],
+    "Eseguibili": [".exe", ".msi", ".bat", ".ps1"],
+    "Video_Audio": [".mp4", ".mkv", ".mp3", ".wav"]
+}
+
+def organize_directory(target_path: str):
+    base_dir = Path(target_path)
+    
+    if not base_dir.exists():
+        print(f"Errore: Il percorso '{target_path}' non esiste.")
+        return
+
+    moved_files = 0
+
+    for item in base_dir.iterdir():
+        if item.is_file():
+            ext = item.suffix.lower()
+            destination_folder = "Altro"
+
+            for category, extensions in CATEGORIES.items():
+                if ext in extensions:
+                    destination_folder = category
+                    break
+
+            dest_dir = base_dir / destination_folder
+            dest_dir.mkdir(exist_ok=True)
+
+            try:
+                shutil.move(str(item), str(dest_dir / item.name))
+                moved_files += 1
+                print(f"Spostato: {item.name} -> {destination_folder}/")
+            except Exception as e:
+                print(f"Impossibile spostare {item.name}: {e}")
+
+    print(f"\\nOperazione completata! Totale file organizzati: {moved_files}")
+
+if __name__ == "__main__":
+    # Organizza automaticamente la cartella Download dell'utente
+    downloads_path = str(Path.home() / "Downloads")
+    organize_directory(downloads_path)`,
+                instructions: `
+                    <ol class="list-decimal list-inside space-y-1.5">
+                        <li>Assicurati di avere <strong>Python 3.8+</strong> installato sul computer.</li>
+                        <li>Scarica o salva il file come <code>OrganizzaCartella.py</code>.</li>
+                        <li>Apri il terminale nella cartella in cui hai salvato il file ed esegui: <code>python OrganizzaCartella.py</code>.</li>
+                        <li>Lo script creerà automaticamente le sottocartelle nella tua directory <em>Download</em>.</li>
+                    </ol>`
+            },
+            javascript: {
+                filename: 'FetchDataHandler.js',
+                code: `/**
+ * Recupera dati JSON da un endpoint API con gestione timeout ed errori
+ * @param {string} url - L'indirizzo dell'API da interrogare
+ * @param {number} timeoutMs - Tempo massimo di attesa in millisecondi
+ */
+async function fetchWithTimeout(url, timeoutMs = 5000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+        });
+
+        clearTimeout(timer);
+
+        if (!response.ok) {
+            throw new Error(\`Errore HTTP: \${response.status} (\${response.statusText})\`);
+        }
+
+        const data = await response.json();
+        console.log('Dati ricevuti con successo:', data);
+        return data;
+
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.error('Richiesta annullata: Timeout scaduto.');
+        } else {
+            console.error('Errore durante il recupero dati:', error.message);
+        }
+        return null;
+    }
+}
+
+// Esempio di utilizzo pratico
+fetchWithTimeout('https://jsonplaceholder.typicode.com/posts/1');`,
+                instructions: `
+                    <ol class="list-decimal list-inside space-y-1.5">
+                        <li>Puoi testare subito questo codice nella <strong>Console Sviluppatori</strong> del browser (tasto <code>F12</code> → <em>Console</em>).</li>
+                        <li>Per usarlo in un sito web, collegalo tramite <code>&lt;script src="FetchDataHandler.js" defer&gt;&lt;/script&gt;</code> prima della chiusura del tag <code>&lt;/body&gt;</code>.</li>
+                        <li>Funziona nativamente anche su <strong>Node.js v18+</strong> senza installare librerie esterne.</li>
+                    </ol>`
+            }
+        };
+
+        // ==========================================
+        // 2. STATO APPLICAZIONE E INIZIALIZZAZIONE
+        // ==========================================
+        let selectedLang = LANGUAGES[0];
+        let currentCode = '';
+        let currentFileName = 'MainScript.lua';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderLanguageGrid();
+            selectLanguage('luau');
+            updateApiBadge();
+            renderHistory();
+        });
+
+        // Renderizza i pulsanti dei linguaggi
+        function renderLanguageGrid() {
+            const grid = document.getElementById('languageGrid');
+            grid.innerHTML = LANGUAGES.map(lang => `
+                <button type="button" onclick="selectLanguage('${lang.id}')" id="lang-btn-${lang.id}"
+                    class="lang-btn flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-lg border text-xs font-medium transition">
+                    <i data-lucide="${lang.icon}" class="w-4 h-4"></i>
+                    <span>${lang.name}</span>
+                </button>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // Seleziona un linguaggio e aggiorna UI (Tipi script, Esempi, Nome file)
+        function selectLanguage(langId) {
+            selectedLang = LANGUAGES.find(l => l.id === langId) || LANGUAGES[0];
+
+            // Aggiorna stile pulsanti
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.className = 'lang-btn flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-lg border border-slate-700/80 bg-ide-card/60 text-slate-400 hover:text-white hover:border-slate-600 text-xs font-medium transition';
+            });
+            const activeBtn = document.getElementById(`lang-btn-${langId}`);
+            if (activeBtn) {
+                activeBtn.className = 'lang-btn flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-lg border border-blue-500 bg-blue-600/15 text-blue-300 shadow-sm shadow-blue-500/10 text-xs font-semibold transition';
+            }
+
+            // Aggiorna select tipo script
+            const typeSelect = document.getElementById('scriptType');
+            typeSelect.innerHTML = selectedLang.types.map(t => `<option value="${t}">${t}</option>`).join('');
+
+            // Aggiorna esempi rapidi
+            const examplesContainer = document.getElementById('quickExamples');
+            examplesContainer.innerHTML = selectedLang.examples.map(ex => `
+                <button type="button" onclick="setPrompt('${ex.replace(/'/g, "\\'")}')"
+                    class="text-left text-xs px-2.5 py-1 rounded-md bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition truncate max-w-full">
+                    + ${ex}
+                </button>
+            `).join('');
+
+            // Aggiorna nome file suggerito
+            currentFileName = `ScriptGenerato${selectedLang.ext}`;
+            document.getElementById('fileNameDisplay').textContent = currentFileName;
+        }
+
+        function setPrompt(text) {
+            const input = document.getElementById('promptInput');
+            input.value = text;
+            input.focus();
+        }
+
+        // ==========================================
+        // 3. GENERAZIONE CODICE (API GEMINI O DEMO)
+        // ==========================================
+        async function generateScript() {
+            const promptText = document.getElementById('promptInput').value.trim();
+            if (!promptText) {
+                alert('Descrivi prima cosa deve fare lo script oppure clicca su uno degli esempi rapidi!');
+                document.getElementById('promptInput').focus();
+                return;
+            }
+
+            const scriptType = document.getElementById('scriptType').value;
+            const optComments = document.getElementById('optComments').checked;
+            const optErrors = document.getElementById('optErrors').checked;
+            const optInstructions = document.getElementById('optInstructions').checked;
+            const apiKey = localStorage.getItem('codeforge_gemini_key');
+
+            setLoading(true);
+
+            try {
+                let result;
+                if (apiKey && apiKey.trim() !== '') {
+                    result = await callGeminiAPI(apiKey, promptText, scriptType, optComments, optErrors, optInstructions);
+                } else {
+                    result = await runDemoSimulation(promptText, scriptType, optComments, optErrors);
+                }
+
+                displayResult(result.filename, result.code, result.instructions, selectedLang.prism);
+                saveToHistory({
+                    id: Date.now(),
+                    langId: selectedLang.id,
+                    langName: selectedLang.name,
+                    prism: selectedLang.prism,
+                    prompt: promptText,
+                    filename: result.filename,
+                    code: result.code,
+                    instructions: result.instructions,
+                    date: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                });
+
+            } catch (error) {
+                console.error(error);
+                alert(`Errore durante la generazione: ${error.message}\nVerrà eseguito il fallback in Modalità Demo.`);
+                const fallback = await runDemoSimulation(promptText, scriptType, optComments, optErrors);
+                displayResult(fallback.filename, fallback.code, fallback.instructions, selectedLang.prism);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Chiamata reale all'API di Google Gemini con System Prompt strutturato
+        async function callGeminiAPI(apiKey, userPrompt, scriptType, optComments, optErrors, optInstructions) {
+            const systemPrompt = `Sei un Senior Software Engineer. Genera codice pulito, moderno, ottimizzato e pronto per la produzione in ${selectedLang.name} (${scriptType}).
+Regole tassative:
+1. Usa le pratiche più recenti del linguaggio (es. in Roblox Luau usa task.wait(), task.spawn(), GetService, mai wait() deprecato).
+2. ${optComments ? 'Includi commenti chiari in italiano per spiegare i passaggi logici.' : 'Non inserire commenti nel codice.'}
+3. ${optErrors ? 'Includi una robusta gestione degli errori (es. pcall in Luau, try/catch in JS/Python/PowerShell).' : 'Mantieni il flusso diretto senza blocchi try/catch superflui.'}
+4. Rispondi EXCLUSIVAMENTE con un oggetto JSON valido (senza markdown \`\`\`json) con questa esatta struttura:
+{
+  "filename": "NomeFileAppropriato${selectedLang.ext}",
+  "code": "il codice completo qui",
+  "instructions": "${optInstructions ? 'Spiegazione HTML (usando <ol>, <li>, <code>, <strong>) su dove inserire ed eseguire lo script.' : '<p>Opzione istruzioni disattivata.</p>'}"
+}`;
+
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_instruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ parts: [{ text: `Richiesta utente: ${userPrompt}` }] }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        responseMimeType: "application/json"
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const rawText = data.candidates[0].content.parts[0].text;
+            return JSON.parse(rawText);
+        }
+
+        // Simulazione intelligente offline/senza API key
+        function runDemoSimulation(promptText, scriptType, optComments, optErrors) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    // Se abbiamo un template specifico per il linguaggio, usiamolo
+                    if (DEMO_SCRIPTS[selectedLang.id]) {
+                        const demo = DEMO_SCRIPTS[selectedLang.id];
+                        let code = demo.code;
+                        if (!optComments) {
+                            // Rimuove righe di commento semplici se disattivato
+                            code = code.split('\n').filter(line => !line.trim().startsWith('--') && !line.trim().startsWith('#') && !line.trim().startsWith('//')).join('\n');
+                        }
+                        resolve({
+                            filename: demo.filename,
+                            code: code,
+                            instructions: demo.instructions
+                        });
+                        return;
+                    }
+
+                    // Generatore dinamico per gli altri linguaggi (C++, SQL, Bash, HTML)
+                    const cleanTitle = promptText.slice(0, 25).replace(/[^a-zA-Z0-9]/g, '') || 'CustomScript';
+                    const filename = `${cleanTitle}${selectedLang.ext}`;
+                    
+                    const templates = {
+                        cpp: `#include <iostream>\n#include <vector>\n#include <stdexcept>\n\n// Richiesta: ${promptText}\nint main() {\n    try {\n        std::cout << "Avvio modulo: ${scriptType}\\n";\n        // Logica principale ottimizzata C++20\n        std::vector<int> dati = {10, 20, 30, 40};\n        for (const auto& val : dati) {\n            std::cout << "Valore elaborato: " << val << "\\n";\n        }\n    } catch (const std::exception& e) {\n        std::cerr << "Errore critico: " << e.what() << "\\n";\n        return 1;\n    }\n    return 0;\n}`,
+                        sql: `-- Richiesta: ${promptText}\n-- Ambiente: ${scriptType}\n\nBEGIN TRANSACTION;\n\nCREATE TABLE IF NOT EXISTS elementi (\n    id INT PRIMARY KEY AUTO_INCREMENT,\n    nome VARCHAR(100) NOT NULL,\n    valore DECIMAL(10, 2) DEFAULT 0.00,\n    creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO elementi (nome, valore) VALUES ('Elemento Test', 49.90);\n\nSELECT * FROM elementi ORDER BY creato_il DESC LIMIT 10;\n\nCOMMIT;`,
+                        bash: `#!/usr/bin/env bash\n# Richiesta: ${promptText}\nset -euo pipefail\n\necho "[INFO] Avvio script su $(hostname)..."\n\nTARGET_DIR="/tmp/backup_test"\nmkdir -p "$TARGET_DIR"\n\necho "[OK] Operazione completata con successo in $TARGET_DIR"`,
+                        html: `<!DOCTYPE html>\n<html lang="it">\n<head>\n  <meta charset="UTF-8">\n  <title>${promptText}</title>\n  <script src="https://cdn.tailwindcss.com"><\/script>\n</head>\n<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-6">\n  <div class="max-w-md w-full bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 shadow-xl">\n    <h2 class="text-xl font-bold mb-2">Componente Generato</h2>\n    <p class="text-slate-300 text-sm mb-4">${promptText}</p>\n    <button class="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition">Azione Principale</button>\n  </div>\n</body>\n</html>`
+                    };
+
+                    resolve({
+                        filename: filename,
+                        code: templates[selectedLang.id] || `// Codice generato per: ${promptText}`,
+                        instructions: `<p>Salva il file come <code>${filename}</code> ed eseguilo nel tuo ambiente <strong>${scriptType}</strong>. <em>(Suggerimento: inserisci una Gemini API Key in alto a destra per generare codice personalizzato su qualsiasi prompt).</em></p>`
+                    });
+                }, 850); // Simula latenza di elaborazione
+            });
+        }
+
+        // ==========================================
+        // 4. RENDERING EDITOR, COPIA E DOWNLOAD
+        // ==========================================
+        function displayResult(filename, code, instructionsHtml, prismLang) {
+            currentFileName = filename;
+            currentCode = code;
+
+            document.getElementById('fileNameDisplay').textContent = filename;
+            
+            const codeElement = document.getElementById('codeOutput');
+            codeElement.className = `language-${prismLang}`;
+            codeElement.textContent = code;
+            
+            // Applica syntax highlighting di Prism.js
+            Prism.highlightElement(codeElement);
+
+            // Aggiorna istruzioni
+            const optInstructions = document.getElementById('optInstructions').checked;
+            const instBox = document.getElementById('instructionsBox');
+            if (optInstructions) {
+                instBox.classList.remove('hidden');
+                document.getElementById('instructionsContent').innerHTML = instructionsHtml;
+            } else {
+                instBox.classList.add('hidden');
+            }
+        }
+
+        function setLoading(isLoading) {
+            const overlay = document.getElementById('loadingOverlay');
+            const btn = document.getElementById('generateBtn');
+            if (isLoading) {
+                overlay.classList.remove('hidden');
+                btn.disabled = true;
+                btn.classList.add('opacity-70', 'cursor-not-allowed');
+            } else {
+                overlay.classList.add('hidden');
+                btn.disabled = false;
+                btn.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
+        }
+
+        async function copyCode() {
+            const textToCopy = currentCode || document.getElementById('codeOutput').textContent;
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                const btnText = document.getElementById('copyBtnText');
+                const btn = document.getElementById('copyBtn');
+                
+                btnText.textContent = 'Copiato!';
+                btn.classList.add('border-emerald-500', 'text-emerald-400');
+                
+                setTimeout(() => {
+                    btnText.textContent = 'Copia Codice';
+                    btn.classList.remove('border-emerald-500', 'text-emerald-400');
+                }, 2000);
+            } catch (err) {
+                alert('Impossibile copiare automaticamente. Seleziona il testo manualmente.');
+            }
+        }
+
+        function downloadCode() {
+            const textToDownload = currentCode || document.getElementById('codeOutput').textContent;
+            const blob = new Blob([textToDownload], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ==========================================
+        // 5. GESTIONE CRONOLOGIA E IMPOSTAZIONI API
+        // ==========================================
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.toggle('hidden');
+            if (modalId === 'settingsModal' && !modal.classList.contains('hidden')) {
+                document.getElementById('apiKeyInput').value = localStorage.getItem('codeforge_gemini_key') || '';
+            }
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (key) {
+                localStorage.setItem('codeforge_gemini_key', key);
+            } else {
+                localStorage.removeItem('codeforge_gemini_key');
+            }
+            updateApiBadge();
+            toggleModal('settingsModal');
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem('codeforge_gemini_key');
+            document.getElementById('apiKeyInput').value = '';
+            updateApiBadge();
+            toggleModal('settingsModal');
+        }
+
+        function updateApiBadge() {
+            const key = localStorage.getItem('codeforge_gemini_key');
+            const badge = document.getElementById('modeBadge');
+            if (key && key.trim() !== '') {
+                badge.className = 'hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Gemini API Attiva</span>';
+            } else {
+                badge.className = 'hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>Modalità Demo</span>';
+            }
+        }
+
+        function saveToHistory(item) {
+            let history = JSON.parse(localStorage.getItem('codeforge_history') || '[]');
+            history.unshift(item);
+            history = history.slice(0, 5); // Mantiene solo gli ultimi 5
+            localStorage.setItem('codeforge_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('codeforge_history') || '[]');
+            document.getElementById('historyCount').textContent = history.length;
+            const list = document.getElementById('historyList');
+
+            if (history.length === 0) {
+                list.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">Nessuno script salvato nella cronologia recente.</p>';
+                return;
+            }
+
+            list.innerHTML = history.map((item, index) => `
+                <div onclick="loadFromHistory(${index})" class="p-3.5 rounded-xl bg-ide-card hover:bg-slate-800 border border-slate-700/80 cursor-pointer transition group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-semibold text-blue-400">${item.langName} • <span class="font-mono text-slate-300">${item.filename}</span></span>
+                        <span class="text-xs text-slate-500">${item.date}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 line-clamp-2 group-hover:text-white">${item.prompt}</p>
+                </div>
+            `).join('');
+        }
+
+        function loadFromHistory(index) {
+            const history = JSON.parse(localStorage.getItem('codeforge_history') || '[]');
+            const item = history[index];
+            if (!item) return;
+
+            selectLanguage(item.langId);
+            document.getElementById('promptInput').value = item.prompt;
+            displayResult(item.filename, item.code, item.instructions, item.prism);
+            toggleModal('historyModal');
+        }
+    </script>
+</body>
+</html>
